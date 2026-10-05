@@ -21,6 +21,13 @@ resource "aws_apigatewayv2_stage" "name" {
   api_id = aws_apigatewayv2_api.api.id
   name = "$default"
   auto_deploy = true
+
+  route_settings {
+    route_key = "POST /objects"
+
+    throttling_rate_limit  = 100
+    throttling_burst_limit = 200
+  }
 }
 
 resource "aws_lambda_permission" "api" {

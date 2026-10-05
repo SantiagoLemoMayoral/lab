@@ -2,11 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name: lab-api
-  namespace: lab
+  name: lab-app
 
 spec:
-  replicas: 3
+  replicas: {{ .Values.replicaCount }}
 
   strategy:
     type: RollingUpdate
@@ -14,51 +13,57 @@ spec:
       maxSurge: 1
       maxUnavailable: 0
 
+  minReadySeconds: 10
+  progressDeadlineSeconds: 600
+
   selector:
     matchLabels:
-      app: lab-api
+      app: lab-app
 
   template:
     metadata:
       labels:
-        app: lab-api
+        app: lab-app
 
     spec:
       containers:
-        - name: lab-api
-          image: lab-api:1.0
+        - name: lab-app
+
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
 
           ports:
-            - containerPort: 8000
+            - containerPort: {{ .Values.containerPort }}
+
+          envFrom:
+            - configMapRef:
+                name: lab-app-config
 
           resources:
             requests:
-              cpu: "250m"
-              memory: "256Mi"
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
 
           startupProbe:
             httpGet:
-              path: /health
-              port: 8000
-            periodSeconds: 5
-            failureThreshold: 24
-            timeoutSeconds: 2
+              path: {{ .Values.probes.startup.path }}
+              port: {{ .Values.containerPort }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
 
           readinessProbe:
             httpGet:
-              path: /health
-              port: 8000
-            periodSeconds: 5
-            failureThreshold: 3
-            timeoutSeconds: 2
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.containerPort }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
 
           livenessProbe:
             httpGet:
-              path: /health
-              port: 8000
-            periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 2
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.containerPort }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
