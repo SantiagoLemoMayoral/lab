@@ -1,7 +1,6 @@
 resource "aws_sqs_queue" "object_dlq1" {
   name = "lab-object-dlq"
 }
-
 resource "aws_sqs_queue" "object_queue1" {
   name = "lab-object-queue"
 

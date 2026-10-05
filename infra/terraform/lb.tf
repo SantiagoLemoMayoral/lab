@@ -5,7 +5,6 @@ resource "aws_lb" "lb" {
 
   subnets = [aws_subnet.public_1.id,
   aws_subnet.public_2.id]
-
   security_groups = [aws_security_group.app_lb.id]
 }
 
@@ -13,6 +12,8 @@ resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.lb.arn
   port = 8000
   protocol = "tcp"
+
+  certificate_arn = aws_acm_certificate_validation.lab.certificate_arn
 
   default_action {
     type = "forward"
@@ -26,8 +27,16 @@ resource "aws_lb_target_group" "HTTP" {
   port = 30080
   vpc_id = aws_vpc.main.id 
   target_type = "instance"
-  health_check {
 
+  stickiness {
+    type            = "lb_cookie"
+    enabled         = false
+    cookie_duration = 86400
+  }
+
+  health_check {
+    path = "/health"
+    port = "traffic-port"
   }
 }
 
@@ -36,3 +45,103 @@ resource "aws_lb_target_group_attachment" "tg_attachment" {
   target_id = kubernetes_service.service.id
 }
 
+
+# ------------------------------------------------------
+resource "aws_launch_template" "lab_workers" {
+  name_prefix   = "lab-workers-"
+  image_id      = "ami-xxxxxxxx"
+  instance_type = "t3.medium"
+}
+
+resource "aws_autoscaling_group" "lab_workers" {
+  name = "lab-workers-asg"
+
+  min_size         = 2
+  max_size         = 6
+  desired_capacity = 3
+
+  vpc_zone_identifier = [
+    aws_subnet.private_a.id,
+    aws_subnet.private_b.id
+  ]
+
+  launch_template {
+    id      = aws_launch_template.lab_workers.id
+    version = "$Latest"
+  }
+}
+
+resource "aws_autoscaling_attachment" "name" {
+    autoscaling_group_name = aws_autoscaling_group.name.name
+    lb_target_group_arn = aws_lb_target_group.HTTP.arn
+}
+# ------------------------------------------------------
+
+resource "aws_wafv2_web_acl" "lab" {
+  name  = "lab-waf"
+  scope = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "lab-waf"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_web_acl_association" "lab" {
+  resource_arn = aws_lb.lab.arn
+  web_acl_arn  = aws_wafv2_web_acl.lab.arn
+}
+
+# -------------------------------------------------------------
+
+data "aws_route53_zone" "lab" {
+  name         = "lab-example.com"
+  private_zone = false
+}
+
+resource "aws_route53_zone" "lab" {
+  name = "lab-example.com"
+}
+
+resource "aws_acm_certificate" "lab" {
+  domain_name       = "api.lab-example.com"
+  validation_method = "DNS"
+}
+
+resource "aws_route53_record" "validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.lab.domain_validation_options :
+    dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  zone_id = data.aws_route53_zone.lab.zone_id
+
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.record]
+
+  ttl = 60
+}
+
+resource "aws_acm_certificate_validation" "lab" {
+  certificate_arn = aws_acm_certificate.lab.arn
+
+  validation_record_fqdns = [
+    for record in aws_route53_record.validation :
+    record.fqdn
+  ]
+}
+# ----------------------------------------------------------------

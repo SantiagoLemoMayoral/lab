@@ -45,3 +45,4 @@ resource "aws_sqs_queue_policy" "allow_eventbridge" {
     }]
   })
 }
+
