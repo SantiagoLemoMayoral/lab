@@ -38,6 +38,8 @@ resource "aws_lb_target_group" "HTTP" {
     path = "/health"
     port = "traffic-port"
   }
+
+  deregistration_delay = 60
 }
 
 resource "aws_lb_target_group_attachment" "tg_attachment" {
@@ -69,12 +71,87 @@ resource "aws_autoscaling_group" "lab_workers" {
     id      = aws_launch_template.lab_workers.id
     version = "$Latest"
   }
+
+  target_group_arns = [
+    aws_lb_target_group.lab.arn
+  ]
+
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 90
+      instance_warmup        = 60
+    }
+  }
 }
 
-resource "aws_autoscaling_attachment" "name" {
-    autoscaling_group_name = aws_autoscaling_group.name.name
-    lb_target_group_arn = aws_lb_target_group.HTTP.arn
+
+resource "aws_autoscaling_schedule" "scale_out_before_campaign" {
+  scheduled_action_name  = "campaign-scale-out"
+  autoscaling_group_name = aws_autoscaling_group.lab_workers.name
+
+  min_size         = 6
+  desired_capacity = 6
+  max_size         = 10
+
+  recurrence = "45 13 * * *"
 }
+
+resource "aws_autoscaling_schedule" "scale_in_after_campaign" {
+  scheduled_action_name  = "campaign-scale-in"
+  autoscaling_group_name = aws_autoscaling_group.lab_workers.name
+
+  min_size         = 2
+  desired_capacity = 2
+  max_size         = 10
+
+  recurrence = "0 17 * * *"
+}
+
+resource "aws_autoscaling_warm_pool" "lab" {
+  autoscaling_group_name = aws_autoscaling_group.lab_workers.name
+
+  pool_state = "Stopped"
+
+  min_size = 2
+
+  max_group_prepared_capacity = 6
+
+  instance_reuse_policy {
+    reuse_on_scale_in = true
+  }
+}
+
+resource "aws_autoscaling_lifecycle_hook" "terminate" {
+  name                   = "lab-graceful-termination"
+  autoscaling_group_name = aws_autoscaling_group.lab.name
+
+  lifecycle_transition = "autoscaling:EC2_INSTANCE_TERMINATING"
+  heartbeat_timeout     = 120
+  default_result        = "CONTINUE"
+}
+
+resource "aws_autoscaling_policy" "requests" {
+  name                   = "lab-request-target-tracking"
+  autoscaling_group_name = aws_autoscaling_group.lab.name
+  policy_type            = "TargetTrackingScaling"
+
+  estimated_instance_warmup = 120
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ALBRequestCountPerTarget"
+
+      resource_label = "${aws_lb.lab.arn_suffix}/${aws_lb_target_group.lab.arn_suffix}"
+    }
+
+    target_value     = 1000
+    disable_scale_in = false
+  }
+}
+
+
 # ------------------------------------------------------
 
 resource "aws_wafv2_web_acl" "lab" {
@@ -100,6 +177,8 @@ resource "aws_wafv2_web_acl_association" "lab" {
   resource_arn = aws_lb.lab.arn
   web_acl_arn  = aws_wafv2_web_acl.lab.arn
 }
+
+
 
 # -------------------------------------------------------------
 
@@ -144,4 +223,5 @@ resource "aws_acm_certificate_validation" "lab" {
     record.fqdn
   ]
 }
+
 # ----------------------------------------------------------------
