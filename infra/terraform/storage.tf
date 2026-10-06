@@ -8,4 +8,6 @@ resource "aws_dynamodb_table" "metadata" {
     name = "object_id"
     type = "S"
   }
+
 }
+
