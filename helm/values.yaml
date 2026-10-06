@@ -7,6 +7,12 @@ image:
 
 containerPort: 8000
 
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  
 service:
   type: ClusterIP
   port: 80
@@ -22,8 +28,8 @@ resources:
 
 hpa:
   enabled: true
-  minReplicas: 3
-  maxReplicas: 10
+  minReplicas: 10
+  maxReplicas: 20
   targetCPU: 70
 
 pdb:

@@ -5,8 +5,10 @@ metadata:
   name: lab-app
 
 spec:
-  replicas: {{ .Values.replicaCount }}
-
+  {{- if not .Values.autoscaling.enabled }}
+      replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  
   strategy:
     type: RollingUpdate
     rollingUpdate:

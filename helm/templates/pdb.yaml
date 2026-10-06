@@ -13,4 +13,4 @@ spec:
     matchLabels:
       app: lab-app
 
-{{- end }}s
+{{- end }}
