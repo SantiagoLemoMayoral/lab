@@ -33,3 +33,42 @@ data "aws_iam_policy_document" "tfc_trust" {
     }
   }
 }
+
+resource "aws_iam_role" "tfc" {
+  name = "terraform-cloud-role"
+
+  assume_role_policy =
+    data.aws_iam_policy_document.tfc_trust.json
+}
+
+data "aws_iam_policy_document" "tfc_permissions" {
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::lab-bucket/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "tfc" {
+  name = "terraform-cloud-permissions"
+
+  policy =
+    data.aws_iam_policy_document.tfc_permissions.json
+}
+
+resource "aws_iam_role_policy_attachment" "tfc" {
+
+  role =
+    aws_iam_role.tfc.name
+
+  policy_arn =
+    aws_iam_policy.tfc.arn
+}
