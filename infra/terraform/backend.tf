@@ -64,8 +64,8 @@ resource "aws_nat_gateway" "second" {
   subnet_id = aws_subnet.public_2.id
 }
 
-resource "aws_nat_gateway" "second" { 
-  allocation_id = aws_eip.eip2.id
+resource "aws_nat_gateway" "third" { 
+  allocation_id = aws_eip.eip3.id
   subnet_id = aws_subnet.public_3.id
 }
 
@@ -124,4 +124,6 @@ resource "aws_route_table" "sixth" {
     subnet_id = aws_subnet.private_3.id
   }
 }
+
+# -----------------------------------------------------
 

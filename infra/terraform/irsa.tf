@@ -14,7 +14,6 @@ resource "aws_iam_openid_connect_provider" "eks" {
   ]
 }
 
-
 data "aws_iam_policy_document" "lab_app_permissions" {
   statement {
     effect = "Allow"
