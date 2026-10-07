@@ -6,7 +6,7 @@ resource "aws_lambda_function" "handler" {
   role         = aws_iam_role.handler.arn
 
   memory_size = 512
-  timeout     = 
+  timeout     = 30
 
   environment {
     variables = {
