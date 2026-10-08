@@ -41,6 +41,10 @@ spec:
             - configMapRef:
                 name: lab-app-config
 
+          volumeMounts:
+            - name: audit-storage
+              mountPath: /data
+              
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}
@@ -69,3 +73,8 @@ spec:
               port: {{ .Values.containerPort }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+
+      volumes:
+        - name: audit-storage
+          persistentVolumeClaim:
+            claimName: audit-pvc
